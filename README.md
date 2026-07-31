@@ -61,8 +61,8 @@ http://localhost/
 Output yang di harapkan :
 
 
-![Hasil Aplikasi](hasil1.png)
-![Hasil Aplikasi](hasil2.png)
+![Hasil Aplikasi](hasil1.PNG)
+![Hasil Aplikasi](hasil2.PNG)
 
 ---
 
