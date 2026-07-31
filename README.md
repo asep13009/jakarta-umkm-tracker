@@ -24,7 +24,7 @@ Aplikasi ini dapat berkembang menjadi salah satu barometer untuk menganalisis UM
 ### 1. Clone Repository
 
 ```bash
-git clone <URL_REPOSITORY_GITHUB>
+git clone https://github.com/asep13009/jakarta-umkm-tracker.git
 ```
 
 Masuk ke direktori project:
@@ -33,7 +33,6 @@ Masuk ke direktori project:
 cd jakarta-umkm-tracker
 ```
 
-> Ganti `<URL_REPOSITORY_GITHUB>` dengan URL repository GitHub Anda.
 
 ---
 
