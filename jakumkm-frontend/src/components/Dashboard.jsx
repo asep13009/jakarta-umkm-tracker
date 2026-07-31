@@ -57,8 +57,8 @@ const [trend24h, setTrend24h] = useState([
     loadInitialData();
     // try{
       const client = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8083/ws-dashboard'),
-        // webSocketFactory: () => new SockJS('/ws-dashboard'),
+        // webSocketFactory: () => new SockJS('http://localhost:8083/ws-dashboard'),
+        webSocketFactory: () => new SockJS('/ws-dashboard'),
         reconnectDelay: 5000,
         onConnect: () => {
           client.subscribe('/topic/realtime-map', (msg) => {
@@ -83,15 +83,15 @@ const [trend24h, setTrend24h] = useState([
 
   const loadInitialData = async () => {
     try {
-        const [top, trend] = await Promise.all([
-          axios.get('http://localhost:8083/api/dashboard/top-umkm'),
-          axios.get("http://localhost:8082/api/analytics/trend-24h/all") 
-        ]);
-
         // const [top, trend] = await Promise.all([
-        //   axios.get('/api/dashboard/top-umkm'),
-        //   axios.get('/api/analytics/trend-24h/all')
+        //   axios.get('http://localhost:8083/api/dashboard/top-umkm'),
+        //   axios.get("http://localhost:8082/api/analytics/trend-24h/all") 
         // ]);
+
+        const [top, trend] = await Promise.all([
+          axios.get('/api/dashboard/top-umkm'),
+          axios.get('/api/analytics/trend-24h/all')
+        ]);
         if (top.data?.length) {
           setTopUmkm(top.data);
           setTrend24h(trend.data);
@@ -104,8 +104,8 @@ const [trend24h, setTrend24h] = useState([
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    const url = selectedKecamatan  ? `http://localhost:8084/api/search/kecamatan/${selectedKecamatan}`: `http://localhost:8084/api/search?q=${query}`;
-    // const url = selectedKecamatan  ? `/api/search/kecamatan/${selectedKecamatan}`: `/api/search?q=${query}`;
+    // const url = selectedKecamatan  ? `http://localhost:8084/api/search/kecamatan/${selectedKecamatan}`: `http://localhost:8084/api/search?q=${query}`;
+    const url = selectedKecamatan  ? `/api/search/kecamatan/${selectedKecamatan}`: `/api/search?q=${query}`;
     const res = await axios.get(url);
     setSearchResults(res.data);
   }
