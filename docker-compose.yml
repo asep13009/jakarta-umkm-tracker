@@ -1,0 +1,165 @@
+services:
+  kafka:
+    image: apache/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      # Configure the cluster role as both broker and controller
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      
+      # Listeners configuration
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka:29092,EXTERNAL://localhost:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      
+      # Inter-broker communication
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      
+      # KRaft required cluster ID (Must be unique)
+      KAFKA_CLUSTER_ID: '4L62YDkVQ6m61rdfas6vJA'
+      CLUSTER_ID: '4L62YDkVQ6m61rdfas6vJA'
+      
+      # Topic creation properties
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jakumkm-net
+
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: jakumkm
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - jakumkm-net
+
+  redis:
+    image: redis:7.2
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    networks:
+      - jakumkm-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.2
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - jakumkm-net
+
+ 
+
+  # 5 Microservice Spring Boot
+  ingestion-service:
+    build: ./ingestion-service
+    ports: ["8081:8080"]
+    depends_on: 
+      postgres:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jakumkm
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - jakumkm-net
+    
+  stream-processor:
+    build: ./stream-processor
+    ports: ["8087:8080"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - jakumkm-net
+
+  analytics-service:
+    build: ./analytics-service
+    ports: ["8082:8080"]
+    depends_on: [postgres, redis]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jakumkm
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - jakumkm-net
+
+  search-service:
+    build: ./search-service
+    ports: ["8086:8080"]
+    depends_on: [elasticsearch, kafka]
+    environment:
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - jakumkm-net
+
+  dashboard-service:
+    build: ./dashboard-service
+    ports: ["8083:8080"]
+    depends_on: [kafka, redis]
+    environment:
+      SPRING_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HOST_ANALYTIC_SERVICE: http://analytics-service:8080
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - jakumkm-net
+      
+  jakumkm-frontend:
+    build: ./jakumkm-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - dashboard-service
+    networks:
+      - jakumkm-net
+
+networks:
+  jakumkm-net:
+
+volumes:
+  pgdata:
+  esdata:
+  kafka_data:
